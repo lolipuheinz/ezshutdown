@@ -1,5 +1,5 @@
 # ezshutdown
-A simple CLI shutdown timer for Windows, written in Python.
+A simple fast CLI shutdown timer, written in C#.
 
 
 Is still a WIP
