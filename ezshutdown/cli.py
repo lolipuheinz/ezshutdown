@@ -48,10 +48,6 @@
 # ezshutdown -ts 90m geht 
 # ezshutdown -ts 0.5s geht nicht
 
-# Wenn eine spanne fehlt zb es gibt nur y und m dann wird automatisch addiert vom programm also eig sehr simpel
-
-# Es wird aber relativ schwer mit diesem 1h 30m einf lose. Es geht schon, oder lazy fix wäre einfach "1h 30m" in quotes
-
 # Es gibt keine kommazahlen, sowas wie 0.25y gibts nicht!!
 
 # y ist groß aber erlaubt, wieso auch nicht?
@@ -77,109 +73,56 @@ test_str = "1h 30m"
 
 # TODO: Außerdem in docstr: I am not in any way responsible for data loss or other damages caused by unexpected device shutdown.
 
-def convert_args_to_time(usr_input: Any) -> int:
-    # takes sum like 1h 30m and converts into seconds
-    # regex??
 
-    alert = 0
-    # if all regex inputs fail to find anything 
-    # (user likely did not understand the syntax)
-    # the program will terminate
 
-    years_search = re.search(r"^(\d+)y", usr_input)
-    if not years_search:
-        alert += 1
-        years_time = 0
-    else:
-        years_time = int(years_search.group(1))
-        years_time *= 365 * 24 * 60 * 60
+# A single piece of the passed arguments like "30m".
+# "mo" needs to be before "m", otherwise the regex would read e.g. "5mo" as "5m" and most likely break.
+TOKEN = r"(\d+)(mo|y|w|d|h|m|s)"
+ 
+# All timespan arguments must consist of these pieces plus whitespaces.
+# Every invalid input ("abc", "0.5s", "-900s", "1h xyz") won't pass.
+FULL_INPUT = rf"\s*(?:{TOKEN}\s*)+"
 
-    months_search = re.search(r"^(\d+)mo", usr_input)
-    if not months_search:
-        months_time = 0
-    else:
-        months_time = int(months_search.group(1))
-        months_time *= 30 * 24 * 60 * 60
+UNIT_SECONDS = {
+    "y": 365 * 24 * 60 * 60,
+    "mo": 30 * 24 * 60 * 60,
+    "w": 7 * 24 * 60 * 60,
+    "d": 24 * 60 * 60,
+    "h": 60 * 60,
+    "m": 60,
+    "s": 1,
+}
 
-    weeks_search = re.search(r"^(\d+)w", usr_input)
-    if not weeks_search:
-        weeks_time = 0
-    else:
-        weeks_time = int(weeks_search.group(1))
-        weeks_time *= 7 * 24 * 60 * 60
-
-    days_search = re.search(r"^(\d+)d", usr_input)
-    if not days_search:
-        days_time = 0
-    else:
-        days_time = int(days_search.group(1))
-        days_time *= 24 * 60 * 60
-
-    hours_search = re.search(r"^(\d+)h", usr_input)
-    if not hours_search:
-        hours_time = 0
-    else:
-        hours_time = int(hours_search.group(1))
-        hours_time *= 60 * 60
-
-    minutes_search = re.search(r"^(\d+)m$", usr_input)
-    # $ needed to not overlap with the month syntax
-    if not minutes_search:
-        minutes_time = 0
-    else:
-        minutes_time = int(minutes_search.group(1))
-        minutes_time *= 60
-
-    seconds_search = re.search(r"^(\d+)s", usr_input)
-    if not seconds_search:
-        seconds_time = 0
-    else:
-        seconds_time = int(seconds_search.group(1))
-
-    times = [years_time, months_time, weeks_time, days_time, 
-             hours_time, minutes_time, seconds_time]
-
-    final_time_seconds = 0
-    for i in times:
-        final_time_seconds += i
-
-    if final_time_seconds > 315360000:
-        raise ValueError("The entered timespan exceeds the " \
-        "limit of 10y / 315360000s and can not be used.")
-        
-    return final_time_seconds
-
+def convert_args_to_time(usr_input: str | list[str]) -> int:
+    """Converts timespan arguments after "ts" to a time in seconds.
     
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    If the input is invalid or a time unit is entered twice, SyntaxError will be raised. 
+    If the resulting seconds would be too large, OverflowError will be raised.
+    """
+    # argparse returns a list like ["3h", "30m"] for "-ts 3h 30m".
+    
+    # "glues" together list elements for further processing
+    if isinstance(usr_input, list):
+        usr_input = " ".join(usr_input)
+ 
+    # Checks whether the entire string is valid
+    if not re.fullmatch(FULL_INPUT, usr_input):
+        raise SyntaxError(f'Invalid syntax: "{usr_input}".')
+ 
+    # Collects all pairs of (value, unit) in one scoop
+    # "1y 5mo" turns into [("1","y"), ("5","mo")]
+    pairs = re.findall(TOKEN, usr_input)
+ 
+    # Reject double units like "1h 2h"
+    units = [unit for _, unit in pairs]
+    if len(units) != len(set(units)):
+        raise SyntaxError(f'Same time unit found twice in "{usr_input}".')
+ 
+    # sums up all parsed times
+    total = sum(int(number) * UNIT_SECONDS[unit] for number, unit in pairs)
+ 
+    # Checks whether the parsed total time is larger than 10 years (windows limit)
+    if total > 315360000:
+        raise OverflowError(f"Total time cannot be larger than 315360000 seconds.")
+ 
+    return total
