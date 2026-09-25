@@ -52,10 +52,11 @@ class Ezshutdown
 
             while (true)
             {
-            
+                
 
                 Console.Write("Zeit bis Shutdown(s/m/sek):");
                 user_input = Console.ReadLine();
+
 
                 if(string.IsNullOrWhiteSpace(user_input) || user_input.Length > 30)
                 {
@@ -63,16 +64,27 @@ class Ezshutdown
                     Console.WriteLine("press any Button to continue");
                     continue;
                 }
+                else if (System.Text.RegularExpressions.Regex.IsMatch(user_input, @"(^|\s)-{1,2}(h|help)(\s|$)"))
+                {
+                    Console.WriteLine("Help");
+                    Console.WriteLine("No arguments: 3y 4mo 2w 4d 4m 2s");
+                    Console.WriteLine("Arguments for Energy save: -es / --es or -EnergySave / -- EnergySave");
+                    Console.WriteLine("Arguments for Hybernating: -hbn / --hbn or -Hybernate / --Hybernate");
+                    Console.WriteLine("You can also set a -time 18:00 for a scheduled shutdown");
+                    Console.WriteLine("If you want to shutdown you system in +1 day use -date");
+                    Console.WriteLine("Example: -date 18:00 25.09.2026");
+                    continue;
+                }
                 else
                 {
-                    break;
+                break;
                 }
             
             
                 
             }
 
-            bool NoOtherArgumen = true;
+            bool HybernateState = false;
             bool NoOtherArgument = true;
             bool EnergySaveState = false;
             long totalTimeinSeconds;
@@ -88,25 +100,23 @@ class Ezshutdown
             string patternTimeVorhanden = @"-time\s{1}([01]?[0-9]|2[0-3]):([0-5][0-9])";
             string patternDateVorhanden = @"-date\s{1}([01]?[0-9]|2[0-3]):([0-5][0-9])\s{1}([0123][0-9]).([10][1-9]).([12][0-9][0-9][0-9])";
 
+            // some over complex bs that somehow works
+
             Match TimeVorhanden = Regex.Match(user_input, patternTimeVorhanden);
             Match DateVorhanden = Regex.Match(user_input, patternDateVorhanden);
-            Match EnergySavE = Regex.Match(user_input, @"\s+\-E\s+");
-            Match EnergySave = Regex.Match(user_input, @"\s+\-e\s+");
+            Match EnergySave = Regex.Match(user_input, @"(^|\s)-{1,2}(es|EnergySave)(\s|$)");
+            Match Hybernate = Regex.Match(user_input, @"(^|\s)-{1,2}(hbn|Hybernate)(\s|$)");
 
 
-
-            if (EnergySavE.Success || EnergySave.Success)
+            if (EnergySave.Success)
             {
                 EnergySaveState = true;
+                NoOtherArgument = false;
             }
-            
-            if (!EnergySaveState)
+            else if (Hybernate.Success)
             {
-                NoOtherArgument = true;
-            }
-            else
-            {
-                NoOtherArgumen = false;
+                HybernateState = true;
+                NoOtherArgument = false;
             }
                 
             if (TimeVorhanden.Success)
@@ -179,8 +189,6 @@ class Ezshutdown
                     return 0;
                 }
 
-
-            
                 
                 long totalTimeinSeconds = 0;
 
@@ -208,77 +216,6 @@ class Ezshutdown
                 }
 
                 return totalTimeinSeconds;
-
-
-
-
-                /*
-
-                // original convert_args_to_time from kai transalted in c#
-                // got replaced by the code above
-                
-                int totalTimeinSeconds;
-                
-                int yearsTime = 0;
-
-                Match yearsSearch = Regex.Match(user_input, @"(\d+)y");
-
-                if (yearsSearch.Success)
-                {
-                    yearsTime = int.Parse(yearsSearch.Groups[1].Value) * 365 * 24 * 60 * 60;
-                }
-
-                int monthsTime = 0;
-                Match monthsSearch = Regex.Match(user_input, @"(\d+)mo");
-                if (monthsSearch.Success)
-                {
-                    monthsTime = int.Parse(monthsSearch.Groups[1].Value) * 30 * 24 * 60 * 60;
-                }
-                
-                int weeksTime = 0;
-                Match weeksSearch = Regex.Match(user_input, @"(\d+)w");
-                if (weeksSearch.Success)
-                {
-                    weeksTime = int.Parse(weeksSearch.Groups[1].Value) * 7 * 24 * 60 * 60;
-                }
-
-                int daysTime = 0;
-                Match daysSearch = Regex.Match(user_input, @"(\d+)d");
-                if (daysSearch.Success)
-                {
-                    daysTime = int.Parse(daysSearch.Groups[1].Value) * 24 * 60 * 60;
-                }
-
-                int hoursTime = 0;
-                Match hoursSearch = Regex.Match(user_input, @"(\d+)h");
-                if (hoursSearch.Success)
-                {
-                    hoursTime = int.Parse(hoursSearch.Groups[1].Value) * 60 * 60;
-                }
-
-                int minutesTime = 0;
-                Match minutesSearch = Regex.Match(user_input, @"(\d+)m");
-                if (minutesSearch.Success)
-                {
-                    minutesTime = int.Parse(minutesSearch.Groups[1].Value) * 60;
-                }
-
-                int secondsTime = 0;
-                Match secondsSearch = Regex.Match(user_input, @"(\d+)s");
-                if (secondsSearch.Success)
-                {
-                    secondsTime = int.Parse(secondsSearch.Groups[1].Value);
-                }
-                
-
-
-                totalTimeinSeconds = secondsTime + minutesTime + hoursTime + daysTime + weeksTime + monthsTime + yearsTime;
-                return totalTimeinSeconds;
-                */
-
-
-
-
             }
 
 
@@ -287,7 +224,7 @@ class Ezshutdown
 
 
 
-            
+            // over 10y check
 
             bool Error = false;
 
@@ -316,7 +253,7 @@ class Ezshutdown
 
             if (!Error && NoOtherArgument)
             {
-                Console.WriteLine($"Die komplette Zeit in Sekunden Beträgt {totalTimeinSeconds} sekunden.");
+                Console.WriteLine($"Shutdown in {totalTimeinSeconds} seconds.");
 
                 // Source - https://stackoverflow.com/a/104258
                 // Posted by Pop Catalin, modified by community. See post 'Timeline' for change history
@@ -327,11 +264,23 @@ class Ezshutdown
                 psi.UseShellExecute = false;
                 Process.Start(psi);
             }
-            else if (EnergySaveState)
+            else if (EnergySaveState && !Error)
             {
                 // for Windows
+                Console.WriteLine($"Energy Save in {totalTimeinSeconds} seconds.");
+                var psi = new ProcessStartInfo("cmd.exe", $"/c timeout /t {totalTimeinSeconds} && rundll32.exe powrprof.dll,SetSuspendState Sleep");
+                psi.CreateNoWindow = true;
+                psi.UseShellExecute = false;
+                Process.Start(psi);
 
-
+            }
+            else if (HybernateState && !Error)
+            {
+                Console.WriteLine($"Hybernating in {totalTimeinSeconds} seconds.");
+                var psi = new ProcessStartInfo("shutdown",$"/h /t {totalTimeinSeconds}");
+                psi.CreateNoWindow = true;
+                psi.UseShellExecute = false;
+                Process.Start(psi);
             }
             else
             {
@@ -340,14 +289,8 @@ class Ezshutdown
             }
 
 
-            if (System.Text.RegularExpressions.Regex.IsMatch(user_input, @"(^|\s)-h(\s|$)"))
-            {
-            Console.WriteLine("So funktioniert das programm:");
-            Console.WriteLine("Hier könnte in Zukunft eine Erklärung stehen.");
-            }
-
-
-
+            Console.WriteLine("Cancel with shutdown.exe /a or shutdown /a in cmd");
+            Console.WriteLine("cant cancel energysave");
 
 
         }
